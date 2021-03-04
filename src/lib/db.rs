@@ -74,6 +74,7 @@ pub fn get_rows_in_db(conn: &Connection) -> u8 {
         |row| row.get(0),
     ) {
         Ok(row) => row,
-        Err(e) => panic!("ERROR: {}", e),
+        Err(e) if e.to_string() == "Query returned no rows".to_string() => 0,
+        Err(e) => panic!("Error: {}", e),
     }
 }
