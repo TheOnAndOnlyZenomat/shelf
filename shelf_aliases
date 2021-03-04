@@ -1,0 +1,2 @@
+alias shelf="target/debug/shelf"
+alias dbi="sqlite3 shelf.db"
