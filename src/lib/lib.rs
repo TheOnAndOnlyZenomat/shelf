@@ -2,7 +2,16 @@
 
 pub mod db;
 
+use crossterm::{cursor, queue, style::Print, terminal, QueueableCommand};
 use rusqlite::{params, Connection, NO_PARAMS};
+use std::convert::TryInto;
+use std::io::{stdout, Write};
+
+pub enum Mode {
+    Title,
+    Author,
+    Id,
+}
 
 pub struct Book {
     id: u8,
@@ -10,16 +19,68 @@ pub struct Book {
     author: String,
 }
 
-pub fn get_rows_in_db(conn: &Connection) -> u8 {
-    match conn.query_row("SELECT count(*) FROM books;", NO_PARAMS, |row| row.get(0)) {
-        Ok(rows) => rows,
-        Err(e) => panic!("ERROR: {}", e),
+pub fn length_of_longest_from_book(list: &Vec<Book>, mode: Mode) -> usize {
+    match mode {
+        Mode::Title => {
+            let mut longest = list[0].name.to_string().len();
+            for item in list {
+                if item.name.to_string().len() > longest {
+                    longest = item.name.to_string().len()
+                }
+            }
+            longest
+        }
+        Mode::Author => {
+            let mut longest = list[0].author.to_string().len();
+            for item in list {
+                if item.author.to_string().len() > longest {
+                    longest = item.author.to_string().len()
+                }
+            }
+            longest
+        }
+        Mode::Id => {
+            let mut longest = list[0].id.to_string().len();
+            for item in list {
+                if item.id.to_string().len() > longest {
+                    longest = item.id.to_string().len()
+                }
+            }
+            longest
+        }
     }
+}
+
+pub fn render(conn: &Connection, books: Vec<Book>) {
+    let mut stdout = stdout();
+    let rows = db::get_rows_in_db(conn);
+    let row_length: u16 = rows.to_string().len().try_into().unwrap_or(100);
+    let spacing_value: u16 = 2;
+    let id_spacing: u16 = 4 + row_length + spacing_value;
+    let longest_title_length: u16 = length_of_longest_from_book(&books, Mode::Title)
+        .try_into()
+        .unwrap();
+    let title_spacing: u16 = 7 + longest_title_length + spacing_value;
+    queue!(
+        stdout,
+        terminal::Clear(terminal::ClearType::All),
+        cursor::MoveTo(0, 0),
+    );
+    for book in books {
+        stdout.queue(Print(format!("ID: {}", book.id)));
+        stdout.queue(cursor::MoveToColumn(id_spacing + 1));
+        stdout.queue(Print(format!("Title: {}", book.name)));
+        stdout.queue(cursor::MoveToColumn(id_spacing + title_spacing + 1));
+        stdout.queue(Print(format!("Author: {}", book.author)));
+        stdout.queue(Print("\n"));
+    }
+
+    stdout.flush();
 }
 
 pub fn book_add(name: String, author: String, conn: &Connection) {
     let book = Book {
-        id: get_rows_in_db(conn) + 1,
+        id: db::get_rows_in_db(conn) + 1,
         name: name,
         author: author,
     };
@@ -45,75 +106,18 @@ pub fn display(conn: &Connection, searchparams: Option<(String, String)>) {
         Some(s) => {
             mode = s.0;
             search = s.1;
-            match search_depends(conn, mode, search) {
+            match db::search_depends(conn, mode, search) {
                 Ok(books) => {
-                    for book in books.iter() {
-                        println!(
-                            "ID: {}, Title: {}, Author: {}\n",
-                            book.id, book.name, book.author
-                        )
-                    }
+                    render(conn, books);
                 }
                 Err(e) => println!("ERROR: {}", e),
             }
         }
-        None => match show_all(conn) {
+        None => match db::show_all(conn) {
             Ok(books) => {
-                for book in books.iter() {
-                    println!(
-                        "ID: {}, Title: {}, Author: {}\n",
-                        book.id, book.name, book.author
-                    )
-                }
+                render(conn, books);
             }
             Err(e) => println!("ERROR: {}", e),
         },
     };
-}
-
-pub fn search_depends(
-    conn: &Connection,
-    mode: String,
-    search: String,
-) -> Result<Vec<Book>, rusqlite::Error> {
-    let mut stmt;
-    match mode.as_str() {
-        "title" => stmt = conn.prepare("SELECT * FROM books WHERE name = ?;")?,
-        "author" => stmt = conn.prepare("SELECT * FROM books WHERE author = ?;")?,
-        "id" => stmt = conn.prepare("SELECT * FROM books WHERE id = ?;")?,
-        _ => stmt = conn.prepare("SELECT * FROM books ;")?,
-    };
-
-    let mut rows = stmt.query(params![search])?;
-
-    let mut books = Vec::new();
-    while let Some(rows) = rows.next()? {
-        let book = Book {
-            id: rows.get(0).unwrap(), //safe to use unwrap, because there will always be an ID
-            name: rows.get(1).unwrap_or("No ID title".to_string()),
-            author: rows.get(2).unwrap_or("No ID author".to_string()),
-        };
-        books.push(book);
-    }
-
-    Ok(books)
-}
-
-pub fn show_all(conn: &Connection) -> Result<Vec<Book>, rusqlite::Error> {
-    println!("Showing all");
-    let mut stmt = conn.prepare("SELECT * FROM books;")?;
-
-    let mut rows = stmt.query(NO_PARAMS)?;
-
-    let mut books = Vec::new();
-    while let Some(rows) = rows.next()? {
-        let book = Book {
-            id: rows.get(0).unwrap(), //safe to use unwrap, because there will always be an ID
-            name: rows.get(1).unwrap_or("No ID found".to_string()),
-            author: rows.get(2).unwrap_or("No ID found".to_string()),
-        };
-        books.push(book);
-    }
-
-    Ok(books)
 }
