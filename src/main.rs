@@ -70,7 +70,7 @@ fn main() {
     if flag.is_present("remove") {
         shelf_lib::book_remove(flag.value_of("remove").expect("Name required").to_string());
     } else if let Some(flag) = flag.subcommand_matches("add") {
-        shelf_lib::book_add(
+        shelf_lib::db::book_add(
             flag.value_of("title").expect("Title required").to_string(),
             flag.value_of("author")
                 .expect("Author required")

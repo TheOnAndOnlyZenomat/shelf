@@ -78,3 +78,20 @@ pub fn get_rows_in_db(conn: &Connection) -> u8 {
         Err(e) => panic!("Error: {}", e),
     }
 }
+
+pub fn book_add(name: String, author: String, conn: &Connection) {
+    let book = Book {
+        id: get_rows_in_db(conn) + 1,
+        name: name,
+        author: author,
+    };
+    println!(
+        "Adding the book \"{}\" with author \"{}\" with DB id of {}",
+        book.name, book.author, book.id
+    );
+    conn.execute(
+        "INSERT INTO books (id, name, author) VALUES (?1, ?2, ?3);",
+        params![book.id, book.name, book.author],
+    )
+    .expect("Could not insert book");
+}

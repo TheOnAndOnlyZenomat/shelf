@@ -1,4 +1,5 @@
 #![allow(unused_variables)]
+#![allow(unused_imports)]
 
 pub mod db;
 
@@ -65,34 +66,30 @@ pub fn render(conn: &Connection, books: Vec<Book>) {
         stdout,
         terminal::Clear(terminal::ClearType::All),
         cursor::MoveTo(0, 0),
-    );
+    )
+    .expect("Could not queue renderpart");
     for book in books {
-        stdout.queue(Print(format!("ID: {}", book.id)));
-        stdout.queue(cursor::MoveToColumn(id_spacing + 1));
-        stdout.queue(Print(format!("Title: {}", book.name)));
-        stdout.queue(cursor::MoveToColumn(id_spacing + title_spacing + 1));
-        stdout.queue(Print(format!("Author: {}", book.author)));
-        stdout.queue(Print("\n"));
+        stdout
+            .queue(Print(format!("ID: {}", book.id)))
+            .expect("Could not queue renderpart");
+        stdout
+            .queue(cursor::MoveToColumn(id_spacing + 1))
+            .expect("Could not queue renderpart");
+        stdout
+            .queue(Print(format!("Title: {}", book.name)))
+            .expect("Could not queue renderpart");
+        stdout
+            .queue(cursor::MoveToColumn(id_spacing + title_spacing + 1))
+            .expect("Could not queue renderpart");
+        stdout
+            .queue(Print(format!("Author: {}", book.author)))
+            .expect("Could not queue renderpart");
+        stdout
+            .queue(Print("\n"))
+            .expect("Could not queue renderpart");
     }
 
-    stdout.flush();
-}
-
-pub fn book_add(name: String, author: String, conn: &Connection) {
-    let book = Book {
-        id: db::get_rows_in_db(conn) + 1,
-        name: name,
-        author: author,
-    };
-    println!(
-        "Adding the book \"{}\" with author \"{}\" with DB id of {}",
-        book.name, book.author, book.id
-    );
-    conn.execute(
-        "INSERT INTO books (id, name, author) VALUES (?1, ?2, ?3);",
-        params![book.id, book.name, book.author],
-    )
-    .expect("Could not insert book");
+    stdout.flush().expect("Could not flush queue to screen");
 }
 
 pub fn book_remove(name: String) {
