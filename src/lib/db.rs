@@ -1,4 +1,4 @@
-use crate::Book;
+use crate::{Book, Mode};
 
 use rusqlite::{params, Connection, Result, NO_PARAMS};
 
@@ -22,15 +22,14 @@ pub fn close_db(conn: Connection) {
 
 pub fn search_depends(
     conn: &Connection,
-    mode: String,
+    mode: Mode,
     search: String,
 ) -> Result<Vec<Book>, rusqlite::Error> {
     let mut stmt;
-    match mode.as_str() {
-        "title" => stmt = conn.prepare("SELECT * FROM books WHERE name = ?;")?,
-        "author" => stmt = conn.prepare("SELECT * FROM books WHERE author = ?;")?,
-        "id" => stmt = conn.prepare("SELECT * FROM books WHERE id = ?;")?,
-        _ => stmt = conn.prepare("SELECT * FROM books ;")?,
+    match mode {
+        Mode::Title => stmt = conn.prepare("SELECT * FROM books WHERE name = ?;")?,
+        Mode::Author => stmt = conn.prepare("SELECT * FROM books WHERE author = ?;")?,
+        Mode::Id => stmt = conn.prepare("SELECT * FROM books WHERE id = ?;")?,
     };
 
     let mut rows = stmt.query(params![search])?;
@@ -94,4 +93,19 @@ pub fn book_add(name: String, author: String, conn: &Connection) {
         params![book.id, book.name, book.author],
     )
     .expect("Could not insert book");
+}
+
+pub fn book_remove(conn: &Connection, mode: Mode, searchterm: String) {
+    let conn = conn;
+    match mode {
+        Mode::Title => conn
+            .execute("DELETE FROM books WHERE name = ?;", params![searchterm])
+            .expect("Could not delete item by name from DB"),
+        Mode::Author => conn
+            .execute("DELETE FROM books WHERE author = ?;", params![searchterm])
+            .expect("Could not delete item by author from DB"),
+        Mode::Id => conn
+            .execute("DELETE FROM books WHERE id = ?;", params![searchterm])
+            .expect("Could not delete item by id from DB"),
+    };
 }

@@ -59,6 +59,18 @@ pub fn length_of_longest_from_book(list: &Vec<Book>, mode: Mode) -> usize {
 pub fn render(conn: &Connection, books: Vec<Book>) {
     let mut stdout = stdout();
 
+    if books.len() == 0 {
+        queue!(
+            stdout,
+            terminal::Clear(terminal::ClearType::All),
+            cursor::MoveTo(0, 0),
+            Print(format!("No books found\n"))
+        )
+        .expect("Could not queue renderpart");
+        stdout.flush().expect("Could not flush queue to screen");
+        return;
+    };
+
     let rows = db::get_rows_in_db(conn);
     let row_length: u16 = rows.to_string().len().try_into().unwrap_or(100);
     let longest_title_length: u16 = length_of_longest_from_book(&books, Mode::Title)
@@ -87,7 +99,8 @@ pub fn render(conn: &Connection, books: Vec<Book>) {
         cursor::MoveToColumn(id_spacing + title_spacing + 1),
         Print(author_styled),
         cursor::MoveToNextLine(1)
-    );
+    )
+    .expect("Could not queue renderpart");
     for book in books {
         stdout
             .queue(Print(format!("{}", book.id)))
@@ -105,36 +118,18 @@ pub fn render(conn: &Connection, books: Vec<Book>) {
             .queue(Print(format!("{}", book.author)))
             .expect("Could not queue renderpart");
         stdout
-            .queue(Print("\n"))
+            .queue(cursor::MoveToNextLine(1))
             .expect("Could not queue renderpart");
     }
 
     stdout.flush().expect("Could not flush queue to screen");
 }
 
-pub fn book_remove(name: String) {
-    println!("Removing the book: {}", name);
-}
-
-pub fn display(conn: &Connection, searchparams: Option<(String, String)>) {
-    let mode;
-    let search;
-    match searchparams {
-        Some(s) => {
-            mode = s.0;
-            search = s.1;
-            match db::search_depends(conn, mode, search) {
-                Ok(books) => {
-                    render(conn, books);
-                }
-                Err(e) => println!("ERROR: {}", e),
-            }
+pub fn display(conn: &Connection, mode: Mode, searchstring: String) {
+    match db::search_depends(conn, mode, searchstring) {
+        Ok(books) => {
+            render(conn, books);
         }
-        None => match db::show_all(conn) {
-            Ok(books) => {
-                render(conn, books);
-            }
-            Err(e) => println!("ERROR: {}", e),
-        },
+        Err(e) => println!("ERROR: {}", e),
     };
 }
