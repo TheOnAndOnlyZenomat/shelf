@@ -3,7 +3,11 @@
 
 pub mod db;
 
-use crossterm::{cursor, queue, style::Print, terminal, QueueableCommand};
+use crossterm::{
+    cursor, queue,
+    style::{style, Attribute, Color, Print},
+    terminal, QueueableCommand,
+};
 use rusqlite::{params, Connection, NO_PARAMS};
 use std::convert::TryInto;
 use std::io::{stdout, Write};
@@ -54,35 +58,51 @@ pub fn length_of_longest_from_book(list: &Vec<Book>, mode: Mode) -> usize {
 
 pub fn render(conn: &Connection, books: Vec<Book>) {
     let mut stdout = stdout();
+
     let rows = db::get_rows_in_db(conn);
     let row_length: u16 = rows.to_string().len().try_into().unwrap_or(100);
-    let spacing_value: u16 = 2;
-    let id_spacing: u16 = 4 + row_length + spacing_value;
     let longest_title_length: u16 = length_of_longest_from_book(&books, Mode::Title)
         .try_into()
         .unwrap();
-    let title_spacing: u16 = 7 + longest_title_length + spacing_value;
+    let spacing_value: u16 = 2;
+
+    let id_spacing: u16 = row_length + spacing_value;
+    let title_spacing: u16 = longest_title_length + spacing_value;
+
+    let id_styled = style("ID").attribute(Attribute::Bold);
+    let title_styled = style("Title").attribute(Attribute::Bold);
+    let author_styled = style("Author").attribute(Attribute::Bold);
+
     queue!(
         stdout,
         terminal::Clear(terminal::ClearType::All),
         cursor::MoveTo(0, 0),
     )
     .expect("Could not queue renderpart");
+    queue!(
+        stdout,
+        Print(id_styled),
+        cursor::MoveToColumn(id_spacing + 1),
+        Print(title_styled),
+        cursor::MoveToColumn(id_spacing + title_spacing + 1),
+        Print(author_styled),
+        cursor::MoveToNextLine(1)
+    );
     for book in books {
         stdout
-            .queue(Print(format!("ID: {}", book.id)))
+            .queue(Print(format!("{}", book.id)))
             .expect("Could not queue renderpart");
         stdout
             .queue(cursor::MoveToColumn(id_spacing + 1))
             .expect("Could not queue renderpart");
         stdout
-            .queue(Print(format!("Title: {}", book.name)))
+            .queue(Print(format!("{}", book.name)))
             .expect("Could not queue renderpart");
         stdout
             .queue(cursor::MoveToColumn(id_spacing + title_spacing + 1))
             .expect("Could not queue renderpart");
         stdout
-            .queue(Print(format!("Author: {}", book.author)))
+            .queue(Print(format!("{}", book.author)))
             .expect("Could not queue renderpart");
         stdout
             .queue(Print("\n"))
